@@ -56,21 +56,40 @@ export class UserController {
     }
   };
 
-  public async register(req: Request, res: Response): Promise<void> {
+  public async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { username, password } = req.body;
+      const { name, email, password } = req.body;
+
+      // Validation
+      if (!name || !email || !password) {
+        res.status(400).json({ message: 'Name, email, and password are required' });
+      }
+
+      // Check if user exists
+      const existingUser = await UserModel.findOne({ name, email, password });
+      if (existingUser) {
+        res.status(409).json({ message: 'User already exists' });
+      }
+
+      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
-      const newUser = new UserModel({ username, password: hashedPassword });
+
+      // Create new user
+      const newUser = new UserModel({ name, email, password: hashedPassword });
       await newUser.save();
-      res.status(201).send('User registered');
+
+      // Respond
+      res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
+      next(error);
+      console.log(error)
     }
   }
+
   public async login(req: Request, res: Response): Promise<void> {
     try {
-        const { name, password } = req.body;
-        const user = await UserModel.findOne({ name });
+        const { name, email, password } = req.body;
+        const user = await UserModel.findOne({ name, email, password });
         if (!user || !(await bcrypt.compare(password, user.password))) {
             res.status(401).send('Invalid credentials');
             return; 
